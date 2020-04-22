@@ -1,8 +1,8 @@
 #!/bin/bash
 ## Modified: 2019-12-01 
-## Version: 0.1.0
-## Purpose:  Generate Docker Enterprise Edition Client Bundle 
-## Requirements: unzip authtoken.sh
+## Version: 0.1.1
+## Purpose:  Bash Functions for Docker Enterprise Edition Tools 
+## Requirements: unzip curl jq
 ## Author:   Michael Zervakis mzerv675@gmail.com
 
 set -e
@@ -42,11 +42,21 @@ function get_input () {
 
 function ucphost () {
     
-    [ -n "$UCP_HOST" ] && return 0
-
     printf "UCP Hostname: "
+    export UCP_HOST=''
+    export UCP_PORT=''
     get_input
-    export UCP_HOST=$INPUT
+    # Input Validation
+    if grep -E -q '^[a-zA-Z0-9]+[a-zA-Z0-9.]*(:[0-9]+)?$' <<< $INPUT;
+    then
+        UCP_HOST=$(sed -r 's/^([a-zA-Z0-9]+[a-zA-Z0-9.]*)(:[0-9]+)?$/\1/' <<< $INPUT)
+        if grep -E -q '^[a-zA-Z0-9]+[a-zA-Z0-9.]*:[0-9]+$' <<< $INPUT;
+        then
+            UCP_PORT=$(sed -r 's/^([a-zA-Z0-9]+[a-zA-Z0-9.]*:)([0-9]+)$/\2/' <<< $INPUT)
+        else
+            UCP_PORT=443
+        fi
+    fi
     unset INPUT
     return 0
 }
@@ -58,23 +68,38 @@ function authtoken () {
     [ ! -x "$(command -v curl)" ] && { ERROR='curl is not installed.' ; return 1; }
     [ ! -x "$(command -v jq)" ] && { ERROR='jq is not installed.' ; return 1; }
 
-    ucphost
+    while [ -z "$UCP_HOST" ]
+    do
+        ucphost
+        [ -z "$UCP_HOST" ] && echo "Invalid Hostname provided ex. ucp.domain.local:443"
+    done
+    
     ERROR="Failed to Connect to https://$UCP_HOST"
-    curl -kIfs --connect-timeout 10 https://$UCP_HOST -o /dev/null
+    curl -kIfs --connect-timeout 10 https://${UCP_HOST}:${UCP_PORT} -o /dev/null
 
     # Get Credentials
-    printf "Username: "
-    get_input
-    local USERNAME=$INPUT
+    local USERNAME=''
+    while [ -z "$USERNAME" ]
+    do
+        printf "Username: "
+        get_input
+        USERNAME=$INPUT
+    done
 
-    printf "Password: "
-    get_input '\x2a'
-    local PASSWORD=$INPUT
+    local PASSWORD=''
+    while [ -z "$PASSWORD" ]
+    do
+        printf "Password: "
+        get_input '\x2a'
+        PASSWORD=$INPUT
+    done
+    
     unset INPUT
+    
 
     local POST="{\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}"
-    ERROR="Failed to Connect to https://$UCP_HOST/auth/login"
-    local REPLY=$(curl -sk --connect-timeout 10 -d $POST https://${UCP_HOST}/auth/login)
+    ERROR="Failed to Connect to https://${UCP_HOST}:${UCP_PORT}/auth/login"
+    local REPLY=$(curl -sk --connect-timeout 10 -d $POST https://${UCP_HOST}:${UCP_PORT}/auth/login)
     if [ -n "$REPLY"  ];
     then
         AUTHTOKEN=$(echo $REPLY | jq -r .auth_token)
@@ -87,12 +112,20 @@ function authtoken () {
 }
 
 function bundlepath () {
-    ucphost
+    
+    while [ -z "$UCP_HOST" ]
+    do
+        ucphost
+        [ -z "$UCP_HOST" ] && echo "Invalid Hostname provided ex. ucp.domain.local:443"
+    done
     export BUNDLE_PATH=~/.ucp/$UCP_HOST
     return 0
 }
 
 function unzipbundle () {
+
+    [ ! -x "$(command -v unzip)" ] && { ERROR='Error: unzip is not installed.'; return 1; }
+
     if [ -f ${BUNDLE_PATH}/bundle.zip  ];
     then
         SOURCE_PATH=$(pwd)
@@ -108,7 +141,7 @@ function unzipbundle () {
 
 function createbundle () {
 
-    [ ! -x "$(command -v unzip)" ] && { ERROR='Error: unzip is not installed.'; return 1; }
+    [ ! -x "$(command -v curl)" ] && { ERROR='curl is not installed.' ; return 1; }
 
     bundlepath
     
@@ -124,8 +157,8 @@ function createbundle () {
         mkdir -p "$BUNDLE_PATH"
     fi
     
-    ERROR="Failed to generate client bundle from https://$UCP_HOST/api/clientbundle"
-    curl -sk -H "Authorization: Bearer $AUTHTOKEN" https://${UCP_HOST}/api/clientbundle -o $BUNDLE_PATH/bundle.zip
+    ERROR="Failed to generate client bundle from https://${UCP_HOST}:${UCP_PORT}/api/clientbundle"
+    curl -sk -H "Authorization: Bearer $AUTHTOKEN" https://${UCP_HOST}:${UCP_PORT}/api/clientbundle -o $BUNDLE_PATH/bundle.zip
     
     unzipbundle
 }

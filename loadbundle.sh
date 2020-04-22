@@ -1,8 +1,8 @@
 #!/bin/bash
 ## Modified: 2020-04-21 
-## Version: 0.1.0
-## Purpose:  Load Docker Enterprise Edition Client Bundle
-## Requirements: authtoken.sh clientbundle.sh
+## Version: 0.1.1
+## Purpose:  Start New Shell configured from Client Bundle
+## Requirements: functions.sh
 ## Author:   Michael Zervakis mzerv675@gmail.com
 
 set -e
@@ -51,7 +51,7 @@ export KUBECONFIG="${BUNDLE_PATH}/kube.yml"
 export DOCKER_TLS_VERIFY=1
 export COMPOSE_TLS_VERSION=TLSv1_2
 export DOCKER_CERT_PATH=${BUNDLE_PATH}
-export DOCKER_HOST=tcp://${UCP_HOST}:443
+export DOCKER_HOST=tcp://${UCP_HOST}:${UCP_PORT}
 # etcdctl Env
 export ETCDCTL_API=3
 export ETCDCTL_KEY=${BUNDLE_PATH}/key.pem
@@ -79,4 +79,4 @@ then
 fi
 kubectl completion bash >> ${BUNDLE_PATH}/rc_bundle.sh
 chmod +x ${BUNDLE_PATH}/rc_bundle.sh
-bash --rcfile ${BUNDLE_PATH}/rc_bundle.sh
+exec bash --rcfile ${BUNDLE_PATH}/rc_bundle.sh
