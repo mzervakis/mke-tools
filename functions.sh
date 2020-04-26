@@ -1,6 +1,6 @@
 #!/bin/bash
-## Modified: 2019-12-01 
-## Version: 0.1.1
+## Modified: 2020-04-26 
+## Version: 0.1.2
 ## Purpose:  Bash Functions for Docker Enterprise Edition Tools 
 ## Requirements: unzip curl jq
 ## Author:   Michael Zervakis mzerv675@gmail.com
@@ -42,17 +42,24 @@ function get_input () {
 
 function ucphost () {
     
-    printf "UCP Hostname: "
     export UCP_HOST=''
     export UCP_PORT=''
-    get_input
-    # Input Validation
-    if grep -E -q '^[a-zA-Z0-9]+[a-zA-Z0-9.]*(:[0-9]+)?$' <<< $INPUT;
+
+    if [ -z "$1" ];
     then
-        UCP_HOST=$(sed -r 's/^([a-zA-Z0-9]+[a-zA-Z0-9.]*)(:[0-9]+)?$/\1/' <<< $INPUT)
-        if grep -E -q '^[a-zA-Z0-9]+[a-zA-Z0-9.]*:[0-9]+$' <<< $INPUT;
+        printf "UCP Hostname: "
+        get_input
+    else 
+        INPUT="$1"
+    fi
+
+    # Input Validation
+    if grep -E -q '^[a-zA-Z0-9-]+([.][a-zA-Z0-9-]+)*(:[0-9]+)?$' <<< $INPUT;
+    then
+        UCP_HOST=$(sed -r 's/^([a-zA-Z0-9-]+[a-zA-Z0-9.-]*)(:[0-9]+)?$/\1/' <<< $INPUT)
+        if grep -E -q '^[a-zA-Z0-9-]+[a-zA-Z0-9.-]*:[0-9]+$' <<< $INPUT;
         then
-            UCP_PORT=$(sed -r 's/^([a-zA-Z0-9]+[a-zA-Z0-9.]*:)([0-9]+)$/\2/' <<< $INPUT)
+            UCP_PORT=$(sed -r 's/^([a-zA-Z0-9-]+[a-zA-Z0-9.-]*:)([0-9]+)$/\2/' <<< $INPUT)
         else
             UCP_PORT=443
         fi
@@ -126,12 +133,12 @@ function unzipbundle () {
 
     [ ! -x "$(command -v unzip)" ] && { ERROR='Error: unzip is not installed.'; return 1; }
 
-    if [ -f ${BUNDLE_PATH}/bundle.zip  ];
+    if [ -f "${BUNDLE_PATH}/bundle.zip"  ];
     then
         SOURCE_PATH=$(pwd)
         ERROR="Failed to unzip ${BUNDLE_PATH}/bundle.zip"
-        cd $BUNDLE_PATH && unzip -o -q bundle.zip
-        cd $SOURCE_PATH
+        cd "$BUNDLE_PATH" && unzip -o -q bundle.zip
+        cd "$SOURCE_PATH"
         return 0
     else
         ERROR="Bundle Zip not found in ${BUNDLE_PATH}"
@@ -158,7 +165,7 @@ function createbundle () {
     fi
     
     ERROR="Failed to generate client bundle from https://${UCP_HOST}:${UCP_PORT}/api/clientbundle"
-    curl -sk -H "Authorization: Bearer $AUTHTOKEN" https://${UCP_HOST}:${UCP_PORT}/api/clientbundle -o $BUNDLE_PATH/bundle.zip
+    curl -sk -H "Authorization: Bearer $AUTHTOKEN" https://${UCP_HOST}:${UCP_PORT}/api/clientbundle -o "$BUNDLE_PATH/bundle.zip"
     
     unzipbundle
 }

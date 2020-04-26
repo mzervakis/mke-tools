@@ -1,6 +1,6 @@
 #!/bin/bash
-## Modified: 2020-04-21 
-## Version: 0.1.1
+## Modified: 2020-04-26 
+## Version: 0.1.2
 ## Purpose:  Start New Shell configured from Client Bundle
 ## Requirements: functions.sh
 ## Author:   Michael Zervakis mzerv675@gmail.com
@@ -14,6 +14,37 @@ set -E
 SCRIPT_PATH=$(dirname "${BASH_SOURCE[0]}")
 [ ! -x "${SCRIPT_PATH}/functions.sh" ] && { echo "Failed to source ${SCRIPT_PATH}/functions.sh" >&2 ; exit 1;}
 source "$SCRIPT_PATH/functions.sh"
+
+if [ -n $1 ];
+then 
+    ARGS=$(getopt -o u:v -l ucp: -l version -- $@)
+    eval set -- "$ARGS"
+    while true; do
+    case "$1" in
+    -v)
+        echo "Version: 0.1.2"
+        exit 0        
+        ;;
+    --version)
+        echo "Version: 0.1.2"
+        exit 0
+        ;;
+    -u)
+        shift
+        ucphost "$1"
+        ;;
+    --ucp)
+        shift
+        ucphost "$1"
+        ;;
+    --)
+        shift
+        break
+        ;;
+    esac
+    shift
+done
+fi
 
 bundlepath
 
@@ -50,33 +81,36 @@ export KUBECONFIG="${BUNDLE_PATH}/kube.yml"
 # docker Env
 export DOCKER_TLS_VERIFY=1
 export COMPOSE_TLS_VERSION=TLSv1_2
-export DOCKER_CERT_PATH=${BUNDLE_PATH}
+export DOCKER_CERT_PATH="${BUNDLE_PATH}"
 export DOCKER_HOST=tcp://${UCP_HOST}:${UCP_PORT}
 # etcdctl Env
 export ETCDCTL_API=3
-export ETCDCTL_KEY=${BUNDLE_PATH}/key.pem
-export ETCDCTL_CACERT=${BUNDLE_PATH}/ca.pem
-export ETCDCTL_CERT=${BUNDLE_PATH}/cert.pem
+export ETCDCTL_KEY="${BUNDLE_PATH}/key.pem"
+export ETCDCTL_CACERT="${BUNDLE_PATH}/ca.pem"
+export ETCDCTL_CERT="${BUNDLE_PATH}/cert.pem"
 export ETCDCTL_ENDPOINTS=https://${UCP_HOST}:12378
 # calicoctl Env
 export ETCD_ENDPOINTS=${UCP_HOST}:12378
-export ETCD_KEY_FILE=${BUNDLE_PATH}/key.pem
-export ETCD_CA_CERT_FILE=${BUNDLE_PATH}/ca.pem
-export ETCD_CERT_FILE=${BUNDLE_PATH}/cert.pem
+export ETCD_KEY_FILE="${BUNDLE_PATH}/key.pem"
+export ETCD_CA_CERT_FILE="${BUNDLE_PATH}/ca.pem"
+export ETCD_CERT_FILE="${BUNDLE_PATH}/cert.pem"
 
 # bash rc
-echo 'export PS1="\[\e]0;\u@\h: \w\a\]${UCP_USER}@${UCP_HOST}:\w\$"' > ${BUNDLE_PATH}/rc_bundle.sh 
-echo 'shopt -s checkwinsize' >> ${BUNDLE_PATH}/rc_bundle.sh
+RCFILE=$(mktemp)
+echo 'export PS1="\[\e]0;\u@\h: \w\a\]${UCP_USER}@${UCP_HOST}:\w\$"' > $RCFILE
+echo 'shopt -s checkwinsize' >> $RCFILE
 if ! shopt -oq posix ;
 then
     if [ -f /usr/share/bash-completion/bash_completion ];
     then
-        echo "source /usr/share/bash-completion/bash_completion" >> ${BUNDLE_PATH}/rc_bundle.sh
+        echo "source /usr/share/bash-completion/bash_completion" >> $RCFILE
     elif [ -f /etc/bash_completion ]; 
     then
-        echo "source /etc/bash_completion" >> ${BUNDLE_PATH}/rc_bundle.sh
+        echo "source /etc/bash_completion" >> $RCFILE
     fi
 fi
-kubectl completion bash >> ${BUNDLE_PATH}/rc_bundle.sh
-chmod +x ${BUNDLE_PATH}/rc_bundle.sh
-exec bash --rcfile ${BUNDLE_PATH}/rc_bundle.sh
+kubectl completion bash >> $RCFILE
+echo "rm -f $RCFILE" >> $RCFILE
+
+# start bash
+exec bash --rcfile $RCFILE -i
