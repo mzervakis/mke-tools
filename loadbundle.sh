@@ -1,6 +1,6 @@
 #!/bin/bash
-## Modified: 2020-04-26 
-## Version: 0.1.2
+## Modified: 2020-04-28
+## Version: 0.1.3
 ## Purpose:  Start New Shell configured from Client Bundle
 ## Requirements: functions.sh
 ## Author:   Michael Zervakis mzerv675@gmail.com
@@ -17,16 +17,17 @@ source "$SCRIPT_PATH/functions.sh"
 
 if [ -n $1 ];
 then 
+    [ ! -x "$(command -v getopt)" ] && { echo 'Error: getopt is not installed.' >&2; exit 1; }
     ARGS=$(getopt -o u:v -l ucp: -l version -- $@)
     eval set -- "$ARGS"
     while true; do
     case "$1" in
     -v)
-        echo "Version: 0.1.2"
+        echo "Version: 0.1.3"
         exit 0        
         ;;
     --version)
-        echo "Version: 0.1.2"
+        echo "Version: 0.1.3"
         exit 0
         ;;
     -u)
@@ -46,23 +47,11 @@ then
 done
 fi
 
-bundlepath
-
-BUNDLEOK=1
-
-if [ -d "$BUNDLE_PATH" ];
-then
-    for FILE in kube.yml cert.pem key.pem ca.pem
-    do
-        [ ! -e "$BUNDLE_PATH/$FILE" ] && { echo "$FILE missing"; BUNDLEOK=0; break; }
-    done
-else
-    BUNDLEOK=0
-fi
+verifybundle
 
 if [ $BUNDLEOK -eq 0 ];
 then
-    if [ -f "$BUNDLE_PATH/bundle.zip" ];
+    if [ -f "${BUNDLE_PATH}/bundle.zip" ];
     then
         unzipbundle
     else

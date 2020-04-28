@@ -1,6 +1,6 @@
 #!/bin/bash
-## Modified: 2020-04-26 
-## Version: 0.1.2
+## Modified: 2020-04-28 
+## Version: 0.1.3
 ## Purpose:  Bash Functions for Docker Enterprise Edition Tools 
 ## Requirements: unzip curl jq
 ## Author:   Michael Zervakis mzerv675@gmail.com
@@ -10,7 +10,7 @@ set -E
 
 function catch_error () {
     trap '' ERR
-    echo "$@" >&2
+    echo "Error: $@" >&2
     exit 1
 }
 
@@ -23,7 +23,7 @@ function get_input () {
     while IFS= read -r -s -n1 char;
     do
         [ -z "$char" ] && { printf '\n'; break; } # ENTER pressed; output \n and break.
-        if [ "$char" == $'\x7f' ];  # backspace was pressed
+        if [ "$char" = $'\x7f' ];  # backspace was pressed
         then
             if [ -n "$INPUT" ];
             then
@@ -38,6 +38,44 @@ function get_input () {
             [ -n "$1" ] && printf $1 || printf $char
         fi
     done
+}
+
+function get_random () {
+    # requires number of random characters
+    [ -z "$1" ] && { ERROR="Invalid invocation without number of random characters"; return 1; }
+    if grep -E -q '^[0-9]+$' <<< $1;
+    then
+        RANDOMCHARS=''
+        while [ ${#RANDOMCHARS} -lt $1 ]
+        do
+            local CHAR=$(head -c 1 /dev/urandom | tr -dc 'a-zA-Z0-9')
+            [ -n "$CHAR" ] && RANDOMCHARS="$RANDOMCHARS$CHAR"
+        done
+        return 0
+    else
+        ERROR="Invalid invocation without number of random characters"
+        return 1
+    fi
+}
+
+function get_secret () {
+    NEWSECRET=''
+    local SECRET_0=''
+    local SECRET_1=''
+    while [ -z "$NEWSECRET" ]
+    do
+        printf "New Passphrase: "
+        get_input '\x2a'
+        [ -z "$INPUT" ] && continue
+        SECRET_0=$INPUT
+        printf "Retype Passphrase: "
+        get_input '\x2a'
+        SECRET_1=$INPUT
+        [ "$SECRET_0" = "$SECRET_1" ] && NEWSECRET=$SECRET_0 || echo "Passphrases do not match"
+        unset INPUT
+    done
+    
+    unset INPUT
 }
 
 function ucphost () {
@@ -56,15 +94,35 @@ function ucphost () {
     # Input Validation
     if grep -E -q '^[a-zA-Z0-9-]+([.][a-zA-Z0-9-]+)*(:[0-9]+)?$' <<< $INPUT;
     then
-        UCP_HOST=$(sed -r 's/^([a-zA-Z0-9-]+[a-zA-Z0-9.-]*)(:[0-9]+)?$/\1/' <<< $INPUT)
+        UCP_HOST=$(sed -r 's/^([a-zA-Z0-9-]+[a-zA-Z0-9.-]*)(:[0-9]+)?$/\1/' <<< $INPUT | tr '[A-Z]' '[a-z]')
         if grep -E -q '^[a-zA-Z0-9-]+[a-zA-Z0-9.-]*:[0-9]+$' <<< $INPUT;
         then
             UCP_PORT=$(sed -r 's/^([a-zA-Z0-9-]+[a-zA-Z0-9.-]*:)([0-9]+)$/\2/' <<< $INPUT)
         else
             UCP_PORT=443
         fi
+        unset INPUT
+        return 0
+    else
+        # if value was provided non interactively return error, otherwise allow user to retry
+        [ -n "$1" ] && { ERROR="Invalid UCP Domain Name $1"; return 1;  }
+        unset INPUT
+        return 0
     fi
-    unset INPUT
+}
+
+function ucphealth () {
+    
+    while [ -z "$UCP_HOST" ]
+    do
+        ucphost
+        [ -z "$UCP_HOST" ] && echo "Invalid Hostname provided ex. ucp.domain.local:443"
+    done
+
+    ERROR="UCP at https://${UCP_HOST}:${UCP_PORT} is unreachable"
+    HTTP_CODE=$(curl -k -s --connect-timeout 10 -w "%{http_code}\n" https://${UCP_HOST}:${UCP_PORT}/_ping -o /dev/null)
+    
+    [ $HTTP_CODE -ne 200 ] && { ERROR="UCP at https://${UCP_HOST}:${UCP_PORT} is unhealthy"; return 1; }
     return 0
 }
 
@@ -75,14 +133,7 @@ function authtoken () {
     [ ! -x "$(command -v curl)" ] && { ERROR='curl is not installed.' ; return 1; }
     [ ! -x "$(command -v jq)" ] && { ERROR='jq is not installed.' ; return 1; }
 
-    while [ -z "$UCP_HOST" ]
-    do
-        ucphost
-        [ -z "$UCP_HOST" ] && echo "Invalid Hostname provided ex. ucp.domain.local:443"
-    done
-    
-    ERROR="Failed to Connect to https://$UCP_HOST"
-    curl -kIfs --connect-timeout 10 https://${UCP_HOST}:${UCP_PORT} -o /dev/null
+    ucphealth
 
     # Get Credentials
     local USERNAME=''
@@ -103,17 +154,18 @@ function authtoken () {
     
     unset INPUT
     
-
     local POST="{\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}"
-    ERROR="Failed to Connect to https://${UCP_HOST}:${UCP_PORT}/auth/login"
-    local REPLY=$(curl -sk --connect-timeout 10 -d $POST https://${UCP_HOST}:${UCP_PORT}/auth/login)
+    ERROR="Request Failed to https://${UCP_HOST}:${UCP_PORT}/auth/login"
+    REPLY=$(curl -s -k --connect-timeout 10 -d $POST https://${UCP_HOST}:${UCP_PORT}/auth/login)
     if [ -n "$REPLY"  ];
     then
         AUTHTOKEN=$(echo $REPLY | jq -r .auth_token)
-        [ "$AUTHTOKEN" == 'null' ] && { unset AUTHTOKEN; ERROR="Failed login for User $USERNAME"; return 1; }
+        [ "$AUTHTOKEN" = 'null' ] && { unset AUTHTOKEN; ERROR="Failed login for User $USERNAME"; return 1; }
+        unset REPLY
         return 0
     else
-        ERROR="No Response from $UCP_HOST"
+        ERROR="Invalid Response from https://${UCP_HOST}:${UCP_PORT}/auth/login"
+        unset REPLY
         return 1
     fi
 }
@@ -131,7 +183,7 @@ function bundlepath () {
 
 function unzipbundle () {
 
-    [ ! -x "$(command -v unzip)" ] && { ERROR='Error: unzip is not installed.'; return 1; }
+    [ ! -x "$(command -v unzip)" ] && { ERROR='unzip is not installed.'; return 1; }
 
     if [ -f "${BUNDLE_PATH}/bundle.zip"  ];
     then
@@ -147,12 +199,11 @@ function unzipbundle () {
 }
 
 function createbundle () {
-
+    # Download new client bundle
     [ ! -x "$(command -v curl)" ] && { ERROR='curl is not installed.' ; return 1; }
 
     bundlepath
     
-    ERROR='Failed to generate bearer token'
     authtoken
     
     if [ -d "$BUNDLE_PATH" ];
@@ -168,4 +219,33 @@ function createbundle () {
     curl -sk -H "Authorization: Bearer $AUTHTOKEN" https://${UCP_HOST}:${UCP_PORT}/api/clientbundle -o "$BUNDLE_PATH/bundle.zip"
     
     unzipbundle
+    return 0
+}
+
+function verifybundle () {
+    # Test if certificates exist and are valid
+    [ -z "$BUNDLE_PATH" ] && bundlepath
+    BUNDLEOK=1
+    if [ -d "$BUNDLE_PATH" ];
+    then
+        # Test if Files Exist
+        for FILE in kube.yml cert.pem key.pem ca.pem
+        do
+            [ ! -e "${BUNDLE_PATH}/${FILE}" ] && { echo "Bundle file $FILE missing"; BUNDLEOK=0; return 0; }
+        done
+        # Verify Cert
+        local CAVERIFY=$(openssl verify -CAfile "${BUNDLE_PATH}/ca.pem" "${BUNDLE_PATH}/cert.pem")
+        if grep -E -q ': OK$' <<< $CAVERIFY;
+        then
+            local KEYFINGER=$(openssl pkey -in "${BUNDLE_PATH}/key.pem" -pubout -outform pem | sha256sum)
+            local CERTFINGER=$(openssl x509 -in "${BUNDLE_PATH}/cert.pem" -pubkey -noout -outform pem | sha256sum)
+            [ "$KEYFINGER" != "$CERTFINGER" ] && { echo "Failed to verify client private key ${BUNDLE_PATH}/key.pem"; BUNDLEOK=0; }
+        else
+            echo "Failed to verify client certificate ${BUNDLE_PATH}/cert.pem"
+            BUNDLEOK=0
+        fi
+    else
+        BUNDLEOK=0
+    fi
+    return 0
 }
