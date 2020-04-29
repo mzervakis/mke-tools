@@ -175,4 +175,5 @@ then
    echo "Successful Backup Job ID: $BACKUPID, File: ${BACKUPPATH}/${FILENAME}.tar, Node: $NODELOCATION"
 else
    echo "Unknown Status for Backup Job ID:$BACKUPID, $BACKUP_DOC"
+   exit 1
 fi

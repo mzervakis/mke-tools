@@ -84,6 +84,13 @@ export ETCD_KEY_FILE="${BUNDLE_PATH}/key.pem"
 export ETCD_CA_CERT_FILE="${BUNDLE_PATH}/ca.pem"
 export ETCD_CERT_FILE="${BUNDLE_PATH}/cert.pem"
 
+if [ -z "$no_proxy" ];
+then
+    export no_proxy=$UCP_HOST
+else
+    export no_proxy="${UCP_HOST},$no_proxy"
+fi
+
 # bash rc
 RCFILE=$(mktemp)
 echo 'export PS1="\[\e]0;\u@\h: \w\a\]${UCP_USER}@${UCP_HOST}:\w\$"' > $RCFILE
