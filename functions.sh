@@ -1,6 +1,6 @@
 #!/bin/bash
-## Modified: 2020-04-28 
-## Version: 0.1.3
+## Modified: 2021-04-14 
+## Version: 0.1.4
 ## Purpose:  Bash Functions for Docker Enterprise Edition Tools 
 ## Requirements: unzip curl jq
 ## Author:   Michael Zervakis mzerv675@gmail.com

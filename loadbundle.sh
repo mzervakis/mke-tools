@@ -1,6 +1,6 @@
 #!/bin/bash
-## Modified: 2020-04-28
-## Version: 0.1.3
+## Modified: 2021-04-14
+## Version: 0.1.4
 ## Purpose:  Start New Shell configured from Client Bundle
 ## Requirements: functions.sh
 ## Author:   Michael Zervakis mzerv675@gmail.com
@@ -23,11 +23,11 @@ then
     while true; do
     case "$1" in
     -v)
-        echo "Version: 0.1.3"
+        echo "Version: 0.1.4"
         exit 0        
         ;;
     --version)
-        echo "Version: 0.1.3"
+        echo "Version: 0.1.4"
         exit 0
         ;;
     -u)
@@ -63,7 +63,7 @@ unset BUNDLEOK
 # kubectl Env
 unset KUBECONFIG
 export UCP_USER=$(openssl x509 -in "${BUNDLE_PATH}/cert.pem" -text -noout | egrep 'Subject.*CN' | sed -e 's/.*CN[ ]*=[ ]*//')
-UCP_USER_SHORT=$(echo ${UCP_USER} | sed -r 's/^([^@]+)(@.*)*$/\1/')
+export UCP_USER_SHORT=$(echo ${UCP_USER} | sed -r 's/^([^@]+)(@.*)*$/\1/')
 kubectl config set-cluster ucp_${UCP_HOST}:6443_${UCP_USER} --server https://${UCP_HOST}:6443 --certificate-authority "${BUNDLE_PATH}/ca.pem" --embed-certs
 kubectl config set-credentials ucp_${UCP_HOST}:6443_${UCP_USER} --client-key "${BUNDLE_PATH}/key.pem" --client-certificate "${BUNDLE_PATH}/cert.pem" --embed-certs
 kubectl config set-context ucp_${UCP_HOST}:6443_${UCP_USER} --user ucp_${UCP_HOST}:6443_${UCP_USER} --cluster ucp_${UCP_HOST}:6443_${UCP_USER}
