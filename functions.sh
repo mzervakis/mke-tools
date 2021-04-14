@@ -120,7 +120,7 @@ function ucphealth () {
     done
 
     ERROR="UCP at https://${UCP_HOST}:${UCP_PORT} is unreachable"
-    HTTP_CODE=$(curl -k -s --connect-timeout 10 -w "%{http_code}\n" https://${UCP_HOST}:${UCP_PORT}/_ping -o /dev/null)
+    HTTP_CODE=$(curl -x '' -k -s --connect-timeout 10 -w "%{http_code}\n" https://${UCP_HOST}:${UCP_PORT}/_ping -o /dev/null)
     
     [ $HTTP_CODE -ne 200 ] && { ERROR="UCP at https://${UCP_HOST}:${UCP_PORT} is unhealthy"; return 1; }
     return 0
@@ -156,7 +156,7 @@ function authtoken () {
     
     local POST="{\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}"
     ERROR="Request Failed to https://${UCP_HOST}:${UCP_PORT}/auth/login"
-    REPLY=$(curl -s -k --connect-timeout 10 -d $POST https://${UCP_HOST}:${UCP_PORT}/auth/login)
+    REPLY=$(curl -x '' -s -k --connect-timeout 10 -d $POST https://${UCP_HOST}:${UCP_PORT}/auth/login)
     if [ -n "$REPLY"  ];
     then
         AUTHTOKEN=$(echo $REPLY | jq -r .auth_token)
@@ -216,7 +216,7 @@ function createbundle () {
     fi
     
     ERROR="Failed to generate client bundle from https://${UCP_HOST}:${UCP_PORT}/api/clientbundle"
-    curl -sk -H "Authorization: Bearer $AUTHTOKEN" https://${UCP_HOST}:${UCP_PORT}/api/clientbundle -o "$BUNDLE_PATH/bundle.zip"
+    curl -x '' -s -k -H "Authorization: Bearer $AUTHTOKEN" https://${UCP_HOST}:${UCP_PORT}/api/clientbundle -o "$BUNDLE_PATH/bundle.zip"
     
     unzipbundle
     return 0

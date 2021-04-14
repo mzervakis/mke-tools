@@ -63,6 +63,7 @@ unset BUNDLEOK
 # kubectl Env
 unset KUBECONFIG
 export UCP_USER=$(openssl x509 -in "${BUNDLE_PATH}/cert.pem" -text -noout | egrep 'Subject.*CN' | sed -e 's/.*CN[ ]*=[ ]*//')
+UCP_USER_SHORT=$(echo ${UCP_USER} | sed -r 's/^([^@]+)(@.*)*$/\1/')
 kubectl config set-cluster ucp_${UCP_HOST}:6443_${UCP_USER} --server https://${UCP_HOST}:6443 --certificate-authority "${BUNDLE_PATH}/ca.pem" --embed-certs
 kubectl config set-credentials ucp_${UCP_HOST}:6443_${UCP_USER} --client-key "${BUNDLE_PATH}/key.pem" --client-certificate "${BUNDLE_PATH}/cert.pem" --embed-certs
 kubectl config set-context ucp_${UCP_HOST}:6443_${UCP_USER} --user ucp_${UCP_HOST}:6443_${UCP_USER} --cluster ucp_${UCP_HOST}:6443_${UCP_USER}
@@ -72,6 +73,7 @@ export DOCKER_TLS_VERIFY=1
 export COMPOSE_TLS_VERSION=TLSv1_2
 export DOCKER_CERT_PATH="${BUNDLE_PATH}"
 export DOCKER_HOST=tcp://${UCP_HOST}:${UCP_PORT}
+export DOCKER_CONFIG="${BUNDLE_PATH}/.docker"
 # etcdctl Env
 export ETCDCTL_API=3
 export ETCDCTL_KEY="${BUNDLE_PATH}/key.pem"
@@ -93,7 +95,7 @@ fi
 
 # bash rc
 RCFILE=$(mktemp)
-echo 'export PS1="\[\e]0;\u@\h: \w\a\]${UCP_USER}@${UCP_HOST}:\w\$"' > $RCFILE
+echo 'export PS1="\[\e]0;\u@\h: \w\a\]${UCP_USER_SHORT}@${UCP_HOST}:\w\$"' > $RCFILE
 echo 'shopt -s checkwinsize' >> $RCFILE
 if ! shopt -oq posix ;
 then
