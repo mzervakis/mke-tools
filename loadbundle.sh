@@ -1,6 +1,6 @@
 #!/bin/bash
-## Modified: 2021-04-14
-## Version: 0.1.4
+## Modified: 2023-02-10
+## Version: 0.1.5
 ## Purpose:  Start New Shell configured from Client Bundle
 ## Requirements: functions.sh
 ## Author:   Michael Zervakis mzerv675@gmail.com
@@ -30,11 +30,11 @@ then
         echo "Version: 0.1.4"
         exit 0
         ;;
-    -u)
+    -H)
         shift
         ucphost "$1"
         ;;
-    --ucp)
+    --host)
         shift
         ucphost "$1"
         ;;
