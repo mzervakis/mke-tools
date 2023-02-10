@@ -1,7 +1,7 @@
 #!/bin/bash
-## Modified: 2021-04-14 
-## Version: 0.1.4
-## Purpose:  Bash Functions for Docker Enterprise Edition Tools 
+## Modified: 2023-02-10 
+## Version: 0.1.5
+## Purpose:  Bash Functions for Mirantis Kubernetes Engine
 ## Requirements: unzip curl jq
 ## Author:   Michael Zervakis mzerv675@gmail.com
 
@@ -177,7 +177,7 @@ function bundlepath () {
         ucphost
         [ -z "$UCP_HOST" ] && echo "Invalid Hostname provided ex. ucp.domain.local:443"
     done
-    export BUNDLE_PATH=~/.ucp/$UCP_HOST
+    export BUNDLE_PATH=~/.mke/$UCP_HOST
     return 0
 }
 
